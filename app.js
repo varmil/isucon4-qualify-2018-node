@@ -38,8 +38,8 @@ var helpers = {
 
     mysqlPool.query(
       'SELECT COUNT(1) AS failures FROM login_log WHERE ' +
-      'user_id = ? AND id > IFNULL((select id from login_log where ' +
-      'user_id = ? AND succeeded = 1 ORDER BY id DESC LIMIT 1), 0);',
+      'user_id = ? AND id > IFNULL((select max(id) from login_log where ' +
+      'user_id = ? AND succeeded = 1), 0);',
       [user.id, user.id],
       function(err, rows) {
         if(err) {
@@ -53,9 +53,14 @@ var helpers = {
 
   isIPBanned: function(ip, callback) {
     mysqlPool.query(
+      // 'SELECT COUNT(1) AS failures FROM login_log WHERE ' +
+      // 'ip = ? AND id > IFNULL((select id from login_log where ip = ? AND ' +
+      // 'succeeded = 1 ORDER BY id DESC LIMIT 1), 0);',
       'SELECT COUNT(1) AS failures FROM login_log WHERE ' +
-      'ip = ? AND id > IFNULL((select id from login_log where ip = ? AND ' +
-      'succeeded = 1 ORDER BY id DESC LIMIT 1), 0);',
+      'ip = ? AND id > IFNULL((select max(id) from login_log where ip = ? AND ' +
+      'succeeded = 1), 0);',
+      // 'SELECT COUNT(1) AS failures FROM login_log WHERE ' +
+      // 'ip = ? AND succeeded = 0;',
       [ip, ip],
       function(err, rows) {
         if(err) {
