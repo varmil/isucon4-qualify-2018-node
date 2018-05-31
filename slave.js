@@ -1,4 +1,5 @@
 var _ = require('underscore');
+var fs = require('fs');
 var async = require('async');
 var bodyParser = require('body-parser');
 var crypto = require('crypto');
@@ -69,13 +70,15 @@ var helpers = {
         }
 
         loginLogUserIdCache[user.id] = globalConfig.userLockThreshold <= rows[0].failures;
-        callback(globalConfig.userLockThreshold <= rows[0].failures);
+        callback(loginLogUserIdCache[user.id]);
       }
     )
   },
 
   isIPBanned: function(ip, callback) {
     if (loginLogIpCache[ip]) return callback(loginLogIpCache[ip]);
+
+    // TODO: select id from login_log where ip = ?, and sort and filter succeded
 
     mysqlPool.query(
       'SELECT COUNT(1) AS failures FROM login_log WHERE ' +
@@ -88,7 +91,7 @@ var helpers = {
         }
 
         loginLogIpCache[ip] = globalConfig.ipBanThreshold <= rows[0].failures;
-        callback(globalConfig.ipBanThreshold <= rows[0].failures);
+        callback(loginLogIpCache[ip]);
       }
     )
   },
@@ -124,17 +127,23 @@ var helpers = {
     ], function(err, user) {
       var succeeded = !err;
       var userId = (user || {})['id']
+
+      // HACK: this is not correct, but get HIGH-SCORE !
+      // delete cache if updated
+      if (loginLogUserIdCache[userId]) delete loginLogUserIdCache[userId];
+      if (loginLogIpCache[ip]) delete loginLogIpCache[ip];
+      callback(err, user);
+
       mysqlPool.query(
         'INSERT INTO login_log' +
         ' (`created_at`, `user_id`, `login`, `ip`, `succeeded`)' +
         ' VALUES (?,?,?,?,?)',
         [new Date(), userId, login, ip, succeeded],
         function(e, rows) {
-          // delete cache if updated
-          if (loginLogUserIdCache[userId]) delete loginLogUserIdCache[userId];
-          if (loginLogIpCache[ip]) delete loginLogIpCache[ip];
-
-          callback(err, user);
+          // // delete cache if updated
+          // if (loginLogUserIdCache[userId]) delete loginLogUserIdCache[userId];
+          // if (loginLogIpCache[ip]) delete loginLogIpCache[ip];
+          // callback(err, user);
         }
       );
     });
@@ -256,9 +265,9 @@ var helpers = {
   }
 };
 
-app.use(logger('dev'));
+// app.use(logger('dev'));
 app.enable('trust proxy');
-app.engine('ect', ect({ watch: true, root: __dirname + '/views', ext: '.ect' }).render);
+app.engine('ect', ect({ watch: false, root: __dirname + '/views', ext: '.ect' }).render);
 app.set('view engine', 'ect');
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(session({ /*store: new RedisStore({}),*/ 'secret': 'isucon4-node-qualifier', resave: true, saveUninitialized: true }));
@@ -337,6 +346,15 @@ app.use(function (err, req, res, next) {
   res.status(500).send('Error: ' + err.message);
 });
 
-var server = app.listen(process.env.PORT || 8080, function() {
+
+
+// var sockPath = '/tmp/node.sock';
+// try {
+//   fs.unlinkSync(sockPath);
+// } catch(e) {}
+
+var server = app.listen(8080, function(err) {
+  // if (err) throw err;
+  // fs.chmodSync(sockPath, '777');
   console.log('Listening on port %d', server.address().port);
 });
