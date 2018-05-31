@@ -78,8 +78,6 @@ var helpers = {
   isIPBanned: function(ip, callback) {
     if (loginLogIpCache[ip]) return callback(loginLogIpCache[ip]);
 
-    // TODO: select id from login_log where ip = ?, and sort and filter succeded
-
     mysqlPool.query(
       'SELECT COUNT(1) AS failures FROM login_log WHERE ' +
       'ip = ? AND id > IFNULL((select max(id) from login_log where ip = ? AND ' +
